@@ -3,6 +3,9 @@ package lzrdm.comms;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
 import gnu.io.CommPortIdentifier; 
 //import gnu.io.SerialPort;
 import gnu.io.SerialPortEvent; 
@@ -30,6 +33,10 @@ public class SerialPort implements SerialPortEventListener {
 	private static final int DATA_RATE = 9600;
 	
 	private MaxObject max;
+	
+	boolean active;
+	
+	byte[] startFlag;
 
 	public void initialize() {
 		//System.out.println(System.getProperty("java.library.path")); // debug classpath
@@ -73,8 +80,11 @@ public class SerialPort implements SerialPortEventListener {
 		} catch (Exception e) {
 			System.err.println(e.toString());
 		}
+		active = true;
 	}
-
+	public boolean isActive(){
+		return active;
+	}
 	/**
 	 * This should be called when you stop using the port.
 	 * This will prevent port locking on platforms like Linux.
@@ -84,6 +94,7 @@ public class SerialPort implements SerialPortEventListener {
 			serialPort.removeEventListener();
 			serialPort.close();
 		}
+		active = false;
 	}
 
 	/**
@@ -106,19 +117,71 @@ public class SerialPort implements SerialPortEventListener {
 		// Ignore all the other eventTypes, but you should consider the other ones.
 	}
 	/**
-	 * Write data to serial port
+	 * Write short to serial port
+	 * @throws IOException 
 	 */
-	public void write(int i){
-		try {
-			output.write(i);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+	public void write(short s) throws IOException{
+		byte low = (byte)(s & 0xff);
+		byte high = (byte)((s >> 8) & 0xff);
+		
+		ByteBuffer bb = ByteBuffer.allocate(2);
+		bb.order(ByteOrder.LITTLE_ENDIAN);
+		bb.put(high);
+		bb.put(low);
+		
+		
+		//startFlag();
+		output.write(bb.array());
+		max.post("write int" + s);
+	}
+	/**
+	 * Write byte to serial port
+	 * @throws IOException 
+	 */
+	public void writeByte(short s) throws IOException{
+		byte unsignedByte = (byte)(s & 0xff);
+		
+		ByteBuffer bb = ByteBuffer.allocate(1);
+		bb.order(ByteOrder.LITTLE_ENDIAN);
+		bb.put(unsignedByte);
+		
+		
+		//startFlag();
+		output.write(bb.array());
+		max.post("write byte" + unsignedByte);
+	}
+	/**
+	 * Write byte to serial port
+	 * @throws IOException 
+	 */
+	public void writeByte(int s) throws IOException{
+		byte unsignedByte = (byte)(s & 0xff);
+		
+		ByteBuffer bb = ByteBuffer.allocate(1);
+		bb.order(ByteOrder.LITTLE_ENDIAN);
+		bb.put(unsignedByte);
+		
+		
+		//startFlag();
+		output.write(bb.array());
+		max.post("write byte" + unsignedByte);
+	}
+	public void setStartFlag(byte[] sf){
+		startFlag = sf;
+	}
+	public void startFlag() throws IOException{
+		output.write(startFlag);
+		max.post("write start flag");
+	}
+	public void writeByte(byte b) throws IOException{
+		output.write(b);
+		max.post("write byte " + b);
+
 	}
 	public static void main(String[] args) throws Exception {
 		SerialPort main = new SerialPort();
 		main.initialize();
-		int x = 0;
+		short x = 0;
 		while(x<100){
 			main.write(x);
 			x++;
@@ -128,4 +191,5 @@ public class SerialPort implements SerialPortEventListener {
 	public void setMax(MaxObject m){
 		max = m;
 	}
+	
 }
